@@ -5,5 +5,4 @@ class DeleteTransactionService {
     // TODO
   }
 }
-
 export default DeleteTransactionService;
