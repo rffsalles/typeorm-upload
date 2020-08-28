@@ -3,6 +3,7 @@ import { getCustomRepository } from 'typeorm';
 import Transaction from '../models/Transaction';
 import TransactionsRepository from '../repositories/TransactionsRepository';
 import CategoriesRepository from '../repositories/CategoriesRepository';
+import AppError from '../errors/AppError';
 
 interface Request {
   title: string;
@@ -18,16 +19,28 @@ export default class CreateTransactionService {
     type,
     category,
   }: Request): Promise<Transaction> {
+    if (!['income', 'outcome'].includes(type)) {
+      throw new Error('Invalid transaction type!');
+    }
+    if (value === 0) {
+      throw new Error('Value must be greater then zero!');
+    }
+
     const categoriesRepository = getCustomRepository(CategoriesRepository);
-    const categoryInstace = await categoriesRepository.findOrCreateByTitle({
+    const categoryInstance = await categoriesRepository.findOrCreateByTitle({
       title: category,
     });
     const transactionsRepository = getCustomRepository(TransactionsRepository);
+    const { total } = await transactionsRepository.getBalance(null);
+    if (type === 'outcome' && total < value) {
+      throw new AppError('insufficient founds', 400);
+    }
+
     const transaction = transactionsRepository.create({
       title,
       value,
       type,
-      category: categoryInstace,
+      category: categoryInstance,
     });
     await transactionsRepository.save(transaction);
     return transaction;
