@@ -1,9 +1,9 @@
-import { getCustomRepository } from 'typeorm';
+import { getCustomRepository, getRepository } from 'typeorm';
 // import AppError from '../errors/AppError';
 import Transaction from '../models/Transaction';
 import TransactionsRepository from '../repositories/TransactionsRepository';
-import CategoriesRepository from '../repositories/CategoriesRepository';
 import AppError from '../errors/AppError';
+import Category from '../models/Category';
 
 interface Request {
   title: string;
@@ -26,21 +26,27 @@ export default class CreateTransactionService {
       throw new Error('Value must be greater then zero!');
     }
 
-    const categoriesRepository = getCustomRepository(CategoriesRepository);
-    const categoryInstance = await categoriesRepository.findOrCreateByTitle({
-      title: category,
+    const categoryRepository = getRepository(Category);
+    let transactionCategory = await categoryRepository.findOne({
+      where: { title: category },
     });
+    if (!transactionCategory) {
+      transactionCategory = categoryRepository.create({
+        title: category,
+      });
+      await categoryRepository.save(transactionCategory);
+    }
     const transactionsRepository = getCustomRepository(TransactionsRepository);
     const { total } = await transactionsRepository.getBalance(null);
     if (type === 'outcome' && total < value) {
-      throw new AppError('insufficient founds', 400);
+      throw new AppError('insufficient funds', 400);
     }
 
     const transaction = transactionsRepository.create({
       title,
       value,
       type,
-      category: categoryInstance,
+      category: transactionCategory,
     });
     await transactionsRepository.save(transaction);
     return transaction;
